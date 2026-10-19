@@ -39,4 +39,16 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+## Data pipeline
+
+Run from the repo root. Needs Kaggle credentials (`KAGGLE_USERNAME` and `KAGGLE_KEY`, or `~/.kaggle/kaggle.json`) and the competition rules accepted on kaggle.com.
+
+```
+python -m shared.download    # fetch and unzip into data/raw
+python -m shared.inventory   # profile every CSV, writes data/processed/inventory.md
+python -m shared.convert     # CSV to parquet in data/processed/parquet
+```
+
+In a notebook: `from shared.io import list_tables, load`.
+
 Each idea folder holds a Jupyter notebook with the four required sections (Motivation, Methods, Results, Discussion).
