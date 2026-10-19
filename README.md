@@ -31,4 +31,12 @@ Download the data into `data/raw/`. It is gitignored.
 
 ## Reproducing
 
-Fill in once the environment is settled.
+Python. Set up an environment and install dependencies:
+
+```
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Each idea folder holds a Jupyter notebook with the four required sections (Motivation, Methods, Results, Discussion).
