@@ -16,7 +16,7 @@ Theme: link 10 Hz NFL Combine sensor tracking to regular-season NFL game trackin
 
 ## Repo layout
 - shared/config.py: paths (RAW, PROCESSED, PARQUET, FIGURES)
-- shared/download.py: python -m shared.download, fetches the competition zip with the Kaggle CLI into data/raw. Needs KAGGLE_USERNAME and KAGGLE_KEY env vars or ~/.kaggle/kaggle.json.
+- shared/download.py: python -m shared.download, fetches the competition zip with the Kaggle CLI into data/raw. Auth is OAuth: run python -m kaggle auth login once, which caches credentials in ~/.kaggle/credentials.json. Fallback is KAGGLE_API_TOKEN in .env at the repo root. kaggle CLI 2.2+ dropped KAGGLE_USERNAME and KAGGLE_KEY.
 - shared/inventory.py: python -m shared.inventory, profiles every CSV (rows, dtypes, null %, distinct counts, sample rows) into data/processed/inventory.md
 - shared/convert.py: python -m shared.convert, chunked CSV to parquet in data/processed/parquet
 - shared/io.py: list_tables() and load(name, columns=None)

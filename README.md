@@ -33,15 +33,28 @@ Download the data into `data/raw/`. It is gitignored.
 
 Python. Set up an environment and install dependencies:
 
-```
+```powershell
 python -m venv .venv
-source .venv/bin/activate
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
+Then authenticate to Kaggle once with OAuth:
+
+```powershell
+.\.venv\Scripts\python.exe -m kaggle auth login
+```
+
+That opens a browser, then caches credentials in `~/.kaggle/credentials.json`
+and refreshes them on its own. Nothing secret lands in the repo.
+
+If you would rather not use OAuth, copy `.env.example` to `.env` and paste a
+token from kaggle.com/settings/api into `KAGGLE_API_TOKEN` instead. `.env` is
+gitignored and `shared/config.py` loads it automatically.
+
 ## Data pipeline
 
-Run from the repo root. Needs Kaggle credentials (`KAGGLE_USERNAME` and `KAGGLE_KEY`, or `~/.kaggle/kaggle.json`) and the competition rules accepted on kaggle.com.
+Run from the repo root. Needs the Kaggle login above and the competition rules accepted on kaggle.com.
 
 ```
 python -m shared.download    # fetch and unzip into data/raw
@@ -49,6 +62,16 @@ python -m shared.inventory   # profile every CSV, writes data/processed/inventor
 python -m shared.convert     # CSV to parquet in data/processed/parquet
 ```
 
-In a notebook: `from shared.io import list_tables, load`.
+Then `python -m shared.overlap` prints the Combine-to-game tracking overlap by
+position group.
+
+In a notebook: `from shared.io import list_tables, load`. Short table names
+work, so `load("players")` resolves the full parquet name.
+
+## Data overview
+
+`data_overview.ipynb` at the repo root profiles all nine tables, confirms the
+10 Hz frame rate, and settles the Combine-to-game overlap. Run it after the
+pipeline above. It is description only, no idea selection and no modeling.
 
 Each idea folder holds a Jupyter notebook with the four required sections (Motivation, Methods, Results, Discussion).

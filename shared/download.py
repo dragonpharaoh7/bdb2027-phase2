@@ -1,7 +1,13 @@
 """Download and unzip the competition data into data/raw.
 
-Needs Kaggle credentials (KAGGLE_USERNAME and KAGGLE_KEY env vars, or
-~/.kaggle/kaggle.json) and the competition rules accepted on kaggle.com.
+Needs Kaggle auth and the competition rules accepted on kaggle.com. Log in
+once with OAuth:
+
+    python -m kaggle auth login
+
+That caches credentials in ~/.kaggle/credentials.json and refreshes them on its
+own. As a fallback, set KAGGLE_API_TOKEN in .env at the repo root. kaggle CLI
+2.2+ dropped the older KAGGLE_USERNAME / KAGGLE_KEY pair.
 
     python -m shared.download
 """
@@ -15,11 +21,16 @@ from shared.config import COMPETITION, RAW
 def main() -> None:
     zip_path = RAW / f"{COMPETITION}.zip"
     if not any(p for p in RAW.rglob("*") if p.suffix in {".csv", ".parquet"}):
-        cmd = ["kaggle", "competitions", "download", "-c", COMPETITION, "-p", str(RAW)]
+        # Use the running interpreter so this works without activating the venv.
+        cmd = [sys.executable, "-m", "kaggle", "competitions", "download", "-c", COMPETITION, "-p", str(RAW)]
         print(" ".join(cmd))
         result = subprocess.run(cmd)
         if result.returncode != 0:
-            sys.exit("Download failed. Check Kaggle credentials and that the rules are accepted.")
+            sys.exit(
+                "Download failed. Log in with 'python -m kaggle auth login' (or set "
+                "KAGGLE_API_TOKEN in .env), and accept the competition rules at "
+                f"kaggle.com/competitions/{COMPETITION}."
+            )
     else:
         print("Data files already present in data/raw, skipping download.")
     if zip_path.exists():
