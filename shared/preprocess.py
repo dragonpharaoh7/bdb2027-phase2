@@ -138,3 +138,17 @@ def check_direction(game: pd.DataFrame, plays: pd.DataFrame, secs: float = 1.5) 
         "pass blockers losing x": (block["dx"] < 0).mean(),
         "n pass blockers": len(block),
     })
+
+
+def smooth_xy(df: pd.DataFrame, group_cols: list[str],
+              window: int = SG_WINDOW, order: int = SG_ORDER) -> pd.DataFrame:
+    """Add `x_sg`, `y_sg` (smoothed position) and `heading` (degrees, direction of travel
+    from the smoothed path, 0 = +x, 90 = +y) within each clip or play."""
+    out = df.sort_values(group_cols + ["time"]).copy()
+    g = out.groupby(group_cols, sort=False)
+    out["x_sg"] = g["x"].transform(lambda s: _sg(s, window, order, 0))
+    out["y_sg"] = g["y"].transform(lambda s: _sg(s, window, order, 0))
+    vx = out.groupby(group_cols, sort=False)["x"].transform(lambda s: _sg(s, window, order, 1))
+    vy = out.groupby(group_cols, sort=False)["y"].transform(lambda s: _sg(s, window, order, 1))
+    out["heading"] = np.degrees(np.arctan2(vy, vx))
+    return out

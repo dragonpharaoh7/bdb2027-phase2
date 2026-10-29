@@ -1,0 +1,203 @@
+<title>__DRILL__ Rep Viewer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: control bar, then a top-down field view beside a speed trace; stacks on phones */
+:root{
+  --bg:#f5f6f3; --panel:#ffffff; --fg:#1d2420; --muted:#66706a; --line:#d9ddd7;
+  --turf:#e8eee6; --yard:#c4cec2; --path:#2f6b4f; --ghost:#b9c4bc; --other:#c07a2c;
+  --mark12:#c2413a; --mark15:#1d2420; --dot:#2f6b4f;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141816; --panel:#1c211e; --fg:#e4e9e5; --muted:#99a49d; --line:#2e3631;
+  --turf:#1a221d; --yard:#2f3a33; --path:#7fc6a0; --ghost:#3c4842; --other:#e3a35c;
+  --mark12:#ef7a72; --mark15:#e4e9e5; --dot:#7fc6a0; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141816; --panel:#1c211e; --fg:#e4e9e5; --muted:#99a49d; --line:#2e3631;
+  --turf:#1a221d; --yard:#2f3a33; --path:#7fc6a0; --ghost:#3c4842; --other:#e3a35c;
+  --mark12:#ef7a72; --mark15:#e4e9e5; --dot:#7fc6a0; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.45}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:14px}
+h1{font-size:20px;font-weight:600;margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:2px 0 0;max-width:70ch}
+.bar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.bar label{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:12px;letter-spacing:.04em;text-transform:uppercase}
+select,button{font:inherit;font-size:13px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+button{cursor:pointer;font-weight:500}
+button.primary{background:var(--path);border-color:var(--path);color:var(--panel);min-width:72px}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--path);outline-offset:2px}
+input[type=range]{width:min(260px,60vw);accent-color:var(--path)}
+.chk{text-transform:none!important;letter-spacing:0!important;font-size:13px!important;color:var(--fg)!important}
+.grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px}
+@media (max-width:820px){.grid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;min-width:0;display:grid;gap:8px}
+.card h2{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0}
+canvas{width:100%;display:block;border-radius:6px}
+.readout{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media (max-width:520px){.readout{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.ro{border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+.ro span{display:block;font-size:11px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.ro b{font-family:var(--mono);font-weight:500;font-size:16px;font-variant-numeric:tabular-nums}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;color:var(--muted);font-size:12px}
+.sw{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+.note{color:var(--muted);font-size:12.5px;max-width:75ch}
+</style>
+
+<div class="wrap">
+  <div>
+    <h1>__DRILL__</h1>
+    <p class="sub">Every OL rep of this drill, top-down and aligned to its own start point (+). __META__</p>
+  </div>
+
+  <div class="bar">
+    <label for="cls">Class <select id="cls"></select></label>
+    <label for="rep">Rep <select id="rep"></select></label>
+    <button id="prev" type="button">Prev</button>
+    <button id="next" type="button">Next</button>
+    <button id="play" class="primary" type="button">Play</button>
+    <label for="spd">Speed <select id="spd"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option></select></label>
+    <label for="scrub">Time <input id="scrub" type="range" min="0" max="1" step="1" value="0"></label>
+    <label class="chk" for="ghost"><input id="ghost" type="checkbox" checked> All reps faint</label>
+    <label class="chk" for="pair"><input id="pair" type="checkbox" checked> Same player's other reps</label>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Top-down path</h2>
+      <canvas id="field"></canvas>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--path)"></i>This rep</span>
+        <span><i class="sw" style="background:var(--other)"></i>Other reps, same player</span>
+        <span><i class="sw" style="background:var(--ghost)"></i>All reps in class</span>
+__MARKLEGEND__
+      </div>
+    </div>
+    <div class="card">
+      <h2>Speed over time</h2>
+      <canvas id="speed"></canvas>
+      <div class="readout">
+        <div class="ro"><span>Time</span><b id="r-t">0.0 s</b></div>
+        <div class="ro"><span>Speed</span><b id="r-s">0.00</b></div>
+        <div class="ro"><span>x from start</span><b id="r-x">0.00</b></div>
+        <div class="ro"><span>y from start</span><b id="r-y">0.00</b></div>
+      </div>
+      <p class="note">Speed is the smoothed speed (yd/s). x and y are yards from the start point (+). Negative x is toward the back of the drill area for the drop drill; check direction per drill. The arrow on the path shows direction of travel.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const REPS = __DATA__;
+const MARKS = __MARKS__;
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const DT = 0.1;
+let cur = 0, frame = 0, playing = false, last = 0, acc = 0;
+
+const classes = [...new Set(REPS.map(r => r.yr))];
+$('cls').innerHTML = '<option value="all">All</option>' + classes.map(c => `<option value="${c}">${c}</option>`).join('');
+function list(){ const v = $('cls').value; return REPS.map((r,i)=>i).filter(i => v==='all' || REPS[i].yr==+v); }
+function fillReps(keep){
+  const L = list();
+  $('rep').innerHTML = L.map(i => { const r = REPS[i]; return `<option value="${i}">${r.yr} · player ${r.id} · rep ${r.rep} of ${r.n}</option>`; }).join('');
+  if (keep!=null && L.includes(keep)) $('rep').value = keep; else $('rep').value = L[0];
+  pick(+$('rep').value);
+}
+function pick(i){ cur = i; frame = 0; $('scrub').max = REPS[i].x.length-1; $('scrub').value = 0; draw(); }
+
+function sizeCanvas(c, ratio){
+  const w = c.clientWidth, dpr = window.devicePixelRatio || 1;
+  c.width = Math.round(w*dpr); c.height = Math.round(w*ratio*dpr);
+  c.style.height = (w*ratio)+'px';
+  const g = c.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); return [g, w, w*ratio];
+}
+
+// field view: x from -12 to 1.5, y from -4.5 to 4.5 yards
+const allx = REPS.flatMap(r=>r.x).concat([0]), ally = REPS.flatMap(r=>r.y).concat([0]);
+const q = (a,p)=>{const s=[...a].sort((m,n)=>m-n);return s[Math.floor(p*(s.length-1))];};
+let FX=[Math.floor(q(allx,.005)-.5), Math.ceil(q(allx,.995)+.5)], FY=[Math.floor(q(ally,.005)-.5), Math.ceil(q(ally,.995)+.5)];
+const TLEN = Math.ceil(q(REPS.map(o=>(o.s.length-1)*DT), .95));
+const SMAX = Math.ceil(Math.max(...REPS.flatMap(r=>r.s))+.5);
+function drawField(){
+  const c = $('field'); const [g,W,H] = sizeCanvas(c, Math.min(1.1, Math.max(.35,(FY[1]-FY[0])/(FX[1]-FX[0]))));
+  const sx = v => (v-FX[0])/(FX[1]-FX[0])*W, sy = v => H-(v-FY[0])/(FY[1]-FY[0])*H;
+  g.fillStyle = css('--turf'); g.fillRect(0,0,W,H);
+  g.strokeStyle = css('--yard'); g.lineWidth = 1; g.fillStyle = css('--muted'); g.font = '11px '+css('--mono');
+  const stp = (FX[1]-FX[0])>20?5:((FX[1]-FX[0])>10?2:1);
+  for (let x=FX[0]; x<=FX[1]; x++){ g.beginPath(); g.moveTo(sx(x),0); g.lineTo(sx(x),H); g.stroke(); if (x%stp===0) g.fillText(x+' yd', sx(x)+3, H-5); }
+  for (let y=FY[0]; y<=FY[1]; y++){ g.beginPath(); g.moveTo(0,sy(y)); g.lineTo(W,sy(y)); g.globalAlpha = y===0?1:.5; g.stroke(); g.globalAlpha=1; }
+  const path = (r, col, lw, upto) => { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); const n = upto==null? r.x.length : upto+1; for (let k=0;k<n;k++){ const X=sx(r.x[k]), Y=sy(r.y[k]); k?g.lineTo(X,Y):g.moveTo(X,Y);} g.stroke(); };
+  const r = REPS[cur];
+  if ($('ghost').checked){ g.globalAlpha = .55; list().forEach(i => { if (i!==cur) path(REPS[i], css('--ghost'), 1); }); g.globalAlpha = 1; }
+  if ($('pair').checked){ REPS.forEach((o,i) => { if (i!==cur && o.id===r.id) path(o, css('--other'), 2); }); }
+  g.globalAlpha = .3; path(r, css('--path'), 2); g.globalAlpha = 1;
+  path(r, css('--path'), 3, frame);
+  MARKS.forEach(([sec,col]) => { const k=Math.round(sec*10); if (k<r.x.length){ g.strokeStyle = css(col); g.lineWidth = 2; g.beginPath(); g.arc(sx(r.x[k]), sy(r.y[k]), 6, 0, 7); g.stroke(); }});
+  g.strokeStyle = css('--fg'); g.lineWidth = 2; g.beginPath(); g.moveTo(sx(0)-7,sy(0)); g.lineTo(sx(0)+7,sy(0)); g.moveTo(sx(0),sy(0)-7); g.lineTo(sx(0),sy(0)+7); g.stroke();
+  const X = sx(r.x[frame]), Y = sy(r.y[frame]);
+  const k0 = Math.max(0, frame-1), k1 = Math.min(r.x.length-1, frame+1);
+  const vx = r.x[k1]-r.x[k0], vy = r.y[k1]-r.y[k0], m = Math.hypot(vx,vy);
+  if (m > .02){ const ax = sx(r.x[frame]+vx/m*1.1)-X, ay = sy(r.y[frame]+vy/m*1.1)-Y;
+    g.strokeStyle = css('--fg'); g.lineWidth = 2; g.beginPath(); g.moveTo(X,Y); g.lineTo(X+ax,Y+ay); g.stroke();
+    const a = Math.atan2(ay,ax); g.beginPath(); g.moveTo(X+ax,Y+ay); g.lineTo(X+ax-8*Math.cos(a-.4),Y+ay-8*Math.sin(a-.4)); g.lineTo(X+ax-8*Math.cos(a+.4),Y+ay-8*Math.sin(a+.4)); g.closePath(); g.fillStyle = css('--fg'); g.fill(); }
+  g.fillStyle = css('--dot'); g.beginPath(); g.arc(X,Y,7,0,7); g.fill(); g.strokeStyle = css('--panel'); g.lineWidth = 2; g.stroke();
+  g.fillStyle = css('--muted'); g.font = '11px '+css('--sans'); 
+}
+
+function drawSpeed(){
+  const c = $('speed'); const [g,W,H] = sizeCanvas(c, .62);
+  const r = REPS[cur], T = Math.max(TLEN, (r.s.length-1)*DT), SM = SMAX;
+  const L = 34, B = 22, sx = t => L+(t/T)*(W-L-8), sy = v => (H-B)-(v/SM)*(H-B-20);
+  g.fillStyle = css('--panel'); g.fillRect(0,0,W,H);
+  g.strokeStyle = css('--line'); g.fillStyle = css('--muted'); g.font = '11px '+css('--mono'); g.lineWidth = 1;
+  for (let v=0; v<=SM; v++){ g.beginPath(); g.moveTo(L,sy(v)); g.lineTo(W-8,sy(v)); g.stroke(); if (v%(SM>8?2:1)===0) g.fillText(v, 12, sy(v)+4); }
+  for (let t=0; t<=T+1e-9; t+=(T>8?2:1)){ g.fillText(t+'s', sx(t)-8, H-6); }
+  MARKS.forEach(([t,col]) => { g.strokeStyle = css(col); g.setLineDash([4,4]); g.beginPath(); g.moveTo(sx(t),8); g.lineTo(sx(t),H-B); g.stroke(); g.setLineDash([]); });
+  if ($('pair').checked){ REPS.forEach((o,i) => { if (i!==cur && o.id===r.id){ g.strokeStyle = css('--other'); g.lineWidth = 1.5; g.beginPath(); o.s.forEach((v,k)=> k?g.lineTo(sx(k*DT),sy(v)):g.moveTo(sx(0),sy(v))); g.stroke(); }}); }
+  g.strokeStyle = css('--path'); g.lineWidth = 2.5; g.beginPath(); r.s.forEach((v,k)=> k?g.lineTo(sx(k*DT),sy(v)):g.moveTo(sx(0),sy(v))); g.stroke();
+  g.strokeStyle = css('--fg'); g.lineWidth = 1.5; g.beginPath(); g.moveTo(sx(frame*DT),8); g.lineTo(sx(frame*DT),H-B); g.stroke();
+  g.fillStyle = css('--dot'); g.beginPath(); g.arc(sx(frame*DT), sy(r.s[frame]), 5, 0, 7); g.fill();
+  g.fillStyle = css('--muted'); g.font = '11px '+css('--sans'); g.fillText('yd/s', 4, 12);
+}
+
+function draw(){
+  drawField(); drawSpeed();
+  const r = REPS[cur];
+  $('r-t').textContent = (frame*DT).toFixed(1)+' s';
+  $('r-s').textContent = r.s[frame].toFixed(2);
+  $('r-x').textContent = r.x[frame].toFixed(2);
+  $('r-y').textContent = r.y[frame].toFixed(2);
+  $('scrub').value = frame;
+}
+
+function tick(ts){
+  if (!playing) return;
+  if (last) acc += (ts-last)/1000 * +$('spd').value;
+  last = ts;
+  while (acc >= DT){ acc -= DT; frame++; }
+  const n = REPS[cur].x.length-1;
+  if (frame >= n){ frame = n; playing = false; $('play').textContent = 'Replay'; }
+  draw();
+  if (playing) requestAnimationFrame(tick);
+}
+$('play').onclick = () => {
+  if (playing){ playing = false; $('play').textContent = 'Play'; return; }
+  if (frame >= REPS[cur].x.length-1) frame = 0;
+  playing = true; last = 0; acc = 0; $('play').textContent = 'Pause';
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches){ frame = REPS[cur].x.length-1; playing=false; $('play').textContent='Replay'; draw(); return; }
+  requestAnimationFrame(tick);
+};
+$('scrub').oninput = e => { frame = +e.target.value; playing = false; $('play').textContent = 'Play'; draw(); };
+$('rep').onchange = e => { playing=false; $('play').textContent='Play'; pick(+e.target.value); };
+$('cls').onchange = () => { playing=false; $('play').textContent='Play'; fillReps(cur); };
+const step = d => { const L = list(); const j = L.indexOf(cur); const k = L[(j+d+L.length)%L.length]; $('rep').value = k; playing=false; $('play').textContent='Play'; pick(k); };
+$('prev').onclick = () => step(-1); $('next').onclick = () => step(1);
+$('ghost').onchange = draw; $('pair').onchange = draw;
+addEventListener('resize', draw);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
+new MutationObserver(draw).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+fillReps();
+frame = 0; draw();
+</script>
